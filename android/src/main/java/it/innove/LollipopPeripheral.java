@@ -86,5 +86,6 @@ public class LollipopPeripheral extends Peripheral {
 		scanResult = result;
 		advertisingData = result.getScanRecord();
 		advertisingDataBytes = advertisingData.getBytes();
+		updateRssi(result.getRssi());
 	}
 }

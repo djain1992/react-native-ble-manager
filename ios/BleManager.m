@@ -18,6 +18,12 @@ RCT_EXPORT_MODULE();
 @synthesize peripherals;
 @synthesize scanTimer;
 bool hasListeners;
+RCTResponseSenderBlock l2capOpenCallback = nil;
+RCTResponseSenderBlock l2capWriteCallback = nil;
+RCTResponseSenderBlock l2capReadCallback = nil;
+NSOutputStream *outputStream = nil;
+NSInputStream *inputStream = nil;
+CBL2CAPChannel *l2capChannel = nil;
 
 - (instancetype)init
 {
@@ -690,6 +696,75 @@ RCT_EXPORT_METHOD(stopNotification:(NSString *)deviceUUID serviceUUID:(NSString*
     
 }
 
+RCT_EXPORT_METHOD(openL2capChannel: (NSString *)peripheralUUID psm:(NSInteger)psm callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"openL2capChannel: %@ psm (%lu)", peripheralUUID, psm);
+    CBPeripheral *peripheral = [self findPeripheralByUUID:peripheralUUID];    
+    if (peripheral) {
+        l2capOpenCallback = callback;
+        [peripheral openL2CAPChannel:psm];
+    } else {
+        callback(@[@"Peripheral not found"]);
+    }
+}
+
+RCT_EXPORT_METHOD(closeL2capChannel: (NSString *)peripheralUUID callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"closeL2capChannel: %@", peripheralUUID);
+    CBPeripheral *peripheral = [self findPeripheralByUUID:peripheralUUID];
+    
+    if (peripheral) {
+        [self closeStreams];
+        callback(@[]);
+    } else {
+        callback(@[@"Peripheral not found"]);
+    }
+}
+
+RCT_EXPORT_METHOD(writeToStream: (NSString *)peripheralUUID message:(NSArray*)message callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"writeToStream (%lu)", [message count]);
+    CBPeripheral *peripheral = [self findPeripheralByUUID:peripheralUUID];    
+    if (peripheral) {
+        unsigned long c = [message count];
+        uint8_t *bytes = malloc(sizeof(*bytes) * c);
+        
+        unsigned i;
+        for (i = 0; i < c; i++)
+        {
+            NSNumber *number = [message objectAtIndex:i];
+            int byte = [number intValue];
+            bytes[i] = byte;
+        }
+        l2capWriteCallback = callback;
+        [outputStream write:bytes maxLength:c];
+    } else {
+        callback(@[@"Peripheral not found"]);
+    }
+}
+
+RCT_EXPORT_METHOD(readFromStream: (NSString *)peripheralUUID byteSize:(NSInteger)byteSize callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"readFromStream (%lu)", byteSize);
+    CBPeripheral *peripheral = [self findPeripheralByUUID:peripheralUUID];    
+    if (peripheral) {
+        uint8_t *bytes = malloc(sizeof(*bytes) * byteSize);
+        if ([inputStream hasBytesAvailable]) {
+            NSInteger readResponse = [inputStream read:bytes maxLength:byteSize];
+            if (readResponse < 0) {
+                callback(@[@"Read Terminated"]);
+            } else {
+                NSArray *array = @[@(bytes[0]), @(bytes[1]), @(bytes[2]), @(bytes[3])];
+                callback(@[[NSNull null], array]);
+            }
+        } else {
+            l2capReadCallback = callback;
+        }
+    } else {
+        callback(@[@"Peripheral not found"]);
+    }
+}
+
 RCT_EXPORT_METHOD(enableBluetooth:(nonnull RCTResponseSenderBlock)callback)
 {
     callback(@[@"Not supported"]);
@@ -1032,5 +1107,95 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 {
     return _instance;
 }
+
+- (void)peripheral:(CBPeripheral *)peripheral didOpenL2CAPChannel:(CBL2CAPChannel *)channel error:(NSError *)error {
+    if (error) {
+        NSLog(@"Error: %@", error);
+        return;
+    }
+    NSLog(@"l2capChannelOpened");
+    [self openStreams:channel];
+}
+
+-(void)openStreams:(CBL2CAPChannel *)channel {
+  // Store the channel identifier
+  l2capChannel = channel;
+  // Open output stream
+  outputStream = [channel outputStream];
+  outputStream.delegate = self;
+  [outputStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+  [outputStream open];
+  // Open input Stream
+  inputStream = channel.inputStream;
+  inputStream.delegate = self;
+  [inputStream scheduleInRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+  [inputStream open];
+}
+
+-(void)closeStreams {
+  if (outputStream != nil) {
+    [outputStream close];
+    [outputStream removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    outputStream = nil;
+  }
+  if (inputStream != nil) {
+    [inputStream close];
+    [inputStream removeFromRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    inputStream = nil;
+  }
+  l2capChannel = nil;
+}
+
+- (void)stream:(NSStream *)aStream handleEvent:(NSStreamEvent)eventCode {
+  NSString *type = aStream == inputStream ? @"Input" : @"Output";
+  NSLog(@"Stream Event %lu, Stream %@, type %@", (unsigned long)eventCode, aStream, type);
+  switch (eventCode) {
+      case NSStreamEventOpenCompleted:
+          NSLog(@"openCompleted");
+          if (aStream == inputStream) {
+              // Send call back that the L2CAP socket is ready
+              if (l2capOpenCallback != nil) {
+                  l2capOpenCallback(@[]);
+                  l2capOpenCallback = nil;
+              }
+          }
+          break;
+      case NSStreamEventHasBytesAvailable:
+          NSLog(@"hasBytesAvailable");
+          if (aStream == inputStream && l2capReadCallback != nil) {
+                uint8_t *bytes = malloc(sizeof(*bytes) * 4);
+                NSInteger readResponse = [inputStream read:bytes maxLength:4];
+                if (readResponse < 0) {
+                    l2capReadCallback(@[@"Read Terminated"]);
+                } else {
+                    NSArray *array = @[@(bytes[0]), @(bytes[1]), @(bytes[2]), @(bytes[3])];
+                    l2capReadCallback(@[[NSNull null], array]);
+                }
+                l2capReadCallback = nil;
+          }
+          break;
+      case NSStreamEventHasSpaceAvailable:
+          if (l2capWriteCallback != nil)
+              NSLog(@"hasSpaceAvailable NON NIL Callback");
+          else
+              NSLog(@"hasSpaceAvailable NIL CALLBACK");
+          if (aStream == outputStream && l2capWriteCallback != nil) {
+              l2capWriteCallback(@[]);
+              l2capWriteCallback = nil;
+          }
+          break;
+      case NSStreamEventErrorOccurred:
+          [self closeStreams];
+          break;
+      case NSStreamEventEndEncountered:
+          if (aStream == inputStream) {
+              [self closeStreams];
+          }
+          break;
+      default:
+          break;
+  }
+}
+
 
 @end

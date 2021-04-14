@@ -36,6 +36,54 @@ class BleManager {
     });
   }
 
+  openL2capChannel(peripheralId, psm) {
+    return new Promise((fulfill, reject) => {
+      bleManager.openL2capChannel(peripheralId, psm, error => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill();
+        }
+      });
+    });
+  }
+
+  readFromStream(peripheralId, byteSize) {
+    return new Promise((fulfill, reject) => {
+      bleManager.readFromStream(peripheralId, byteSize, (error, data) => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill(data);
+        }
+      });
+    });
+  }
+
+  writeToStream(peripheralId, data) {
+    return new Promise((fulfill, reject) => {
+      bleManager.writeToStream(peripheralId, data, error => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill();
+        }
+      });
+    });
+  }
+
+  closeL2capChannel(peripheralId) {
+    return new Promise((fulfill, reject) => {
+      bleManager.closeL2capChannel(peripheralId, error => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill();
+        }
+      });
+    });
+  }
+
   refreshCache(peripheralId) {
     return new Promise((fulfill, reject) => {
       bleManager.refreshCache(peripheralId, (error, result) => {

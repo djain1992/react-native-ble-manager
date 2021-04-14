@@ -106,19 +106,23 @@ public class LollipopScanManager extends ScanManager {
 			runOnUiThread(new Runnable() {
 				@Override
 				public void run() {
-					Log.i(bleManager.LOG_TAG, "DiscoverPeripheral: " + result.getDevice().getName());
-
                     LollipopPeripheral peripheral = (LollipopPeripheral) bleManager.getPeripheral(result.getDevice());
                     if (peripheral == null) {
-                        peripheral = new LollipopPeripheral(bleManager.getReactContext(), result);
+                        if (result.getDevice().getName() != null) {
+                            peripheral = new LollipopPeripheral(bleManager.getReactContext(), result);
+                        }
                     } else {
-                        peripheral.updateData(result.getScanRecord());
-                        peripheral.updateRssi(result.getRssi());
+                        // Need to update the connectable flag which is part of the results.
+                        peripheral.updateScanResults(result);
                     }
-                    bleManager.savePeripheral(peripheral);
 
-					WritableMap map = peripheral.asWritableMap();
-					bleManager.sendEvent("BleManagerDiscoverPeripheral", map);
+                    if (peripheral != null) {
+                        Log.i(bleManager.LOG_TAG, "DiscoverPeripheral: " + result.getDevice().getName());
+                        bleManager.savePeripheral(peripheral);
+
+                        WritableMap map = peripheral.asWritableMap();
+                        bleManager.sendEvent("BleManagerDiscoverPeripheral", map);
+                    }
 				}
 			});
 		}

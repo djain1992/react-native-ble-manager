@@ -111,43 +111,44 @@ CBL2CAPChannel *l2capChannel = nil;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    if (error) {
-        NSLog(@"Error in didUpdateNotificationStateForCharacteristic: %@", error);
-        if (characteristic == nil){
-            return;
-        }
+    if (characteristic == nil){
+        return;
     }
     
     NSString *key = [self keyForPeripheral: peripheral andCharacteristic:characteristic];
     
-    if (characteristic.isNotifying) {
+    // In case of error clean up both callbacks
+    if (error) {
+        NSLog(@"Error in didUpdateNotificationStateForCharacteristic: %@", error);
+        RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
+        if (stopNotificationCallback != nil) {
+            stopNotificationCallback(@[error]);
+            [stopNotificationCallbacks removeObjectForKey:key];
+        }
         RCTResponseSenderBlock notificationCallback = [notificationCallbacks objectForKey:key];
-        if (notificationCallback != nil) {
-            if (error) {
-                notificationCallback(@[error]);
-            } else {
-                NSLog(@"Notification began on %@", characteristic.UUID);
-                notificationCallback(@[]);
-            }
+        if (notificationCallback != nil && error) {
+            notificationCallback(@[error]);
             [notificationCallbacks removeObjectForKey:key];
         }
     } else {
-        // Notification has stopped
-        RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
-        if (stopNotificationCallback != nil) {
-            if (error) {
-                stopNotificationCallback(@[error]);
-            } else {
+        if (characteristic.isNotifying) {
+            RCTResponseSenderBlock notificationCallback = [notificationCallbacks objectForKey:key];
+            if (notificationCallback != nil) {
+                NSLog(@"Notification began on %@", characteristic.UUID);
+                notificationCallback(@[]);
+                [notificationCallbacks removeObjectForKey:key];
+            }
+        } else {
+            // Notification has stopped
+            RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
+            if (stopNotificationCallback != nil) {
                 NSLog(@"Notification ended on %@", characteristic.UUID);
                 stopNotificationCallback(@[]);
+                [stopNotificationCallbacks removeObjectForKey:key];
             }
-            [stopNotificationCallbacks removeObjectForKey:key];
         }
     }
 }
-
-
-
 
 - (NSString *) centralManagerStateToString: (int)state
 {
@@ -863,15 +864,16 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     NSLog(@"Peripheral Disconnected: %@", [peripheral uuidAsString]);
-    
+    NSString *errorStr;
+
     if (error) {
         NSLog(@"Error: %@", error);
+        errorStr = [NSString stringWithFormat:@"%@", [error localizedDescription]];
+    } else {
+        errorStr = [NSString stringWithFormat:@"Unspecified Error"];
     }
     
-    NSString *peripheralUUIDString = [peripheral uuidAsString];
-    
-    NSString *errorStr = [NSString stringWithFormat:@"Peripheral did disconnect: %@", peripheralUUIDString];
-    
+    NSString *peripheralUUIDString = [peripheral uuidAsString];    
     RCTResponseSenderBlock connectCallback = [connectCallbacks valueForKey:peripheralUUIDString];
     if (connectCallback) {
         connectCallback(@[errorStr]);
@@ -933,9 +935,9 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
             }
         }
     }
-    
+
     if (hasListeners) {
-        [self sendEventWithName:@"BleManagerDisconnectPeripheral" body:@{@"peripheral": [peripheral uuidAsString]}];
+        [self sendEventWithName:@"BleManagerDisconnectPeripheral" body:@{@"peripheral": [peripheral uuidAsString], @"status": errorStr}];
     }
 }
 

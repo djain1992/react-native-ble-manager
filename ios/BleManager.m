@@ -485,7 +485,7 @@ RCT_EXPORT_METHOD(checkState)
 
 - (void)centralManager:(CBCentralManager *)central didFailToConnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error
 {
-    NSString *errorStr = [NSString stringWithFormat:@"Peripheral connection failure: %@. (%@)", peripheral, [error localizedDescription]];
+    NSString *errorStr = [NSString stringWithFormat:@"%@", [error localizedDescription]];
     NSLog(@"%@", errorStr);
     RCTResponseSenderBlock connectCallback = [connectCallbacks valueForKey:[peripheral uuidAsString]];
     

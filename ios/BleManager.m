@@ -91,9 +91,10 @@ CBL2CAPChannel *l2capChannel = nil;
     RCTResponseSenderBlock readCallback = [readCallbacks objectForKey:key];
     
     if (error) {
-        NSLog(@"Error %@ :%@", characteristic.UUID, error);
+        NSString *errorStr = [NSString stringWithFormat:@"%@", [error localizedDescription]];
+        NSLog(@"Read Error %@ :%@", characteristic.UUID, error);
         if (readCallback != NULL) {
-            readCallback(@[error, [NSNull null]]);
+            readCallback(@[errorStr, [NSNull null]]);
             [readCallbacks removeObjectForKey:key];
         }
         return;

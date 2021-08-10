@@ -108,9 +108,12 @@ public class LollipopScanManager extends ScanManager {
 				public void run() {
                     LollipopPeripheral peripheral = (LollipopPeripheral) bleManager.getPeripheral(result.getDevice());
                     if (peripheral == null) {
-                        if (result.getDevice().getName() != null) {
+                        // Some of the tags does not advertise name but we still need
+                        // to display on the application side. Let the applocation decide to
+                        // use the scan result or not based on the name present or not
+                        // if (result.getDevice().getName() != null) {
                             peripheral = new LollipopPeripheral(bleManager.getReactContext(), result);
-                        }
+                        // }
                     } else {
                         // Need to update the connectable flag which is part of the results.
                         peripheral.updateScanResults(result);

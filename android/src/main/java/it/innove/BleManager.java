@@ -3,6 +3,7 @@ package it.innove;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
@@ -302,7 +303,7 @@ class BleManager extends ReactContextBaseJavaModule {
 
         Peripheral peripheral = peripherals.get(peripheralUUID);
         if (peripheral != null) {
-            peripheral.disconnect(force);
+            peripheral.disconnect(force, BluetoothGatt.GATT_SUCCESS);
             callback.invoke();
         } else
             callback.invoke("Peripheral not found");
@@ -652,7 +653,7 @@ class BleManager extends ReactContextBaseJavaModule {
             synchronized (peripherals) {
                 for (Peripheral peripheral : peripherals.values()) {
                     if (peripheral.isConnected()) {
-                        peripheral.disconnect(true);
+                        peripheral.disconnect(true, BluetoothGatt.GATT_SUCCESS);
                     }
                 }
             }

@@ -82,7 +82,7 @@ CBL2CAPChannel *l2capChannel = nil;
 
 - (NSArray<NSString *> *)supportedEvents
 {
-    return @[@"BleManagerDidUpdateValueForCharacteristic", @"BleManagerStopScan", @"BleManagerDiscoverPeripheral", @"BleManagerConnectPeripheral", @"BleManagerDisconnectPeripheral", @"BleManagerDidUpdateState", @"BleManagerCentralManagerWillRestoreState"];
+    return @[@"BleManagerDidUpdateValueForCharacteristic", @"BleManagerStopScan", @"BleManagerDiscoverPeripheral", @"BleManagerConnectPeripheral", @"BleManagerDisconnectPeripheral", @"BleManagerDidUpdateState", @"BleManagerCentralManagerWillRestoreState", @"BleManagerDidUpdateNotificationStateFor"];
 }
 
 
@@ -112,44 +112,49 @@ CBL2CAPChannel *l2capChannel = nil;
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didUpdateNotificationStateForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    if (characteristic == nil){
-        return;
+    if (error) {
+        NSLog(@"Error in didUpdateNotificationStateForCharacteristic: %@", error);
+        if (characteristic == nil){
+            return;
+        }
+        if (hasListeners) {
+            [self sendEventWithName:@"BleManagerDidUpdateNotificationStateFor" body:@{@"peripheral": peripheral.uuidAsString, @"characteristic": characteristic.UUID.UUIDString, @"isNotifying": @(false), @"domain": [error domain], @"code": @(error.code)}];
+        }
     }
     
     NSString *key = [self keyForPeripheral: peripheral andCharacteristic:characteristic];
     
-    // In case of error clean up both callbacks
-    if (error) {
-        NSLog(@"Error in didUpdateNotificationStateForCharacteristic: %@", error);
-        RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
-        if (stopNotificationCallback != nil) {
-            stopNotificationCallback(@[error]);
-            [stopNotificationCallbacks removeObjectForKey:key];
-        }
+    if (characteristic.isNotifying) {
         RCTResponseSenderBlock notificationCallback = [notificationCallbacks objectForKey:key];
-        if (notificationCallback != nil && error) {
-            notificationCallback(@[error]);
+        if (notificationCallback != nil) {
+            if (error) {
+                notificationCallback(@[error]);
+            } else {
+                NSLog(@"Notification began on %@", characteristic.UUID);
+                notificationCallback(@[]);
+            }
             [notificationCallbacks removeObjectForKey:key];
         }
     } else {
-        if (characteristic.isNotifying) {
-            RCTResponseSenderBlock notificationCallback = [notificationCallbacks objectForKey:key];
-            if (notificationCallback != nil) {
-                NSLog(@"Notification began on %@", characteristic.UUID);
-                notificationCallback(@[]);
-                [notificationCallbacks removeObjectForKey:key];
-            }
-        } else {
-            // Notification has stopped
-            RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
-            if (stopNotificationCallback != nil) {
+        // Notification has stopped
+        RCTResponseSenderBlock stopNotificationCallback = [stopNotificationCallbacks objectForKey:key];
+        if (stopNotificationCallback != nil) {
+            if (error) {
+                stopNotificationCallback(@[error]);
+            } else {
                 NSLog(@"Notification ended on %@", characteristic.UUID);
                 stopNotificationCallback(@[]);
-                [stopNotificationCallbacks removeObjectForKey:key];
             }
+            [stopNotificationCallbacks removeObjectForKey:key];
         }
     }
+    if (hasListeners) {
+        [self sendEventWithName:@"BleManagerDidUpdateNotificationStateFor" body:@{@"peripheral": peripheral.uuidAsString, @"characteristic": characteristic.UUID.UUIDString, @"isNotifying": @(characteristic.isNotifying)}];
+    }
 }
+
+
+
 
 - (NSString *) centralManagerStateToString: (int)state
 {

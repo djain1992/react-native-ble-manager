@@ -31,23 +31,19 @@ public class LegacyScanManager extends ScanManager {
 					runOnUiThread(new Runnable() {
 						@Override
 						public void run() {
-							Peripheral peripheral = bleManager.getPeripheral(device);
-							if (peripheral == null) {
-								if (device.getName() != null) {
-									peripheral = new Peripheral(device, rssi, scanRecord, bleManager.getReactContext());
-								}
+							Log.i(bleManager.LOG_TAG, "DiscoverPeripheral: " + device.getName());
+
+                            Peripheral peripheral = bleManager.getPeripheral(device);
+                            if (peripheral == null) {
+                            	peripheral = new Peripheral(device, rssi, scanRecord, bleManager.getReactContext());
 							} else {
-								peripheral.updateData(scanRecord);
-								peripheral.updateRssi(rssi);
+                            	peripheral.updateData(scanRecord);
+                            	peripheral.updateRssi(rssi);
 							}
+                            bleManager.savePeripheral(peripheral);
 
-							if (peripheral != null) {
-								Log.i(bleManager.LOG_TAG, "DiscoverPeripheral: " + device.getName());
-								bleManager.savePeripheral(peripheral);
-
-								WritableMap map = peripheral.asWritableMap();
-								bleManager.sendEvent("BleManagerDiscoverPeripheral", map);
-							}
+							WritableMap map = peripheral.asWritableMap();
+							bleManager.sendEvent("BleManagerDiscoverPeripheral", map);
 						}
 					});
 				}

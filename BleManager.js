@@ -458,6 +458,10 @@ class BleManager {
       });
     });
   }
+
+  setName(name) {
+    bleManager.setName(name);
+  }
 }
 
 module.exports = new BleManager();

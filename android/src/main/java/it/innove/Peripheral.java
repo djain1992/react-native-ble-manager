@@ -347,8 +347,11 @@ public class Peripheral extends BluetoothGattCallback {
 					readCallback, registerNotifyCallback, requestMTUCallback);
 			for (Callback currentCallback : callbacks) {
 				if (currentCallback != null) {
-					currentCallback.invoke("Device disconnected");
-				}
+					try {
+						currentCallback.invoke("Device disconnected");
+					} catch (Exception e) {
+						e.printStackTrace();
+					}				}
 			}
 			if (connectCallback != null) {
 				connectCallback.invoke("Connection error");
@@ -508,6 +511,8 @@ public class Peripheral extends BluetoothGattCallback {
 
 			readRSSICallback = null;
 		}
+
+		completedCommand();
 	}
 
 	private String bufferedCharacteristicsKey(String serviceUUID, String characteristicUUID) {
@@ -761,7 +766,7 @@ public class Peripheral extends BluetoothGattCallback {
 			    if (isConnected()) {
 				readRSSICallback = callback;
 				if (! gatt.readRemoteRssi()) {
-				    readCallback = null;
+					readRSSICallback = null;
 				    sendBackrError(callback, "Read RSSI failed");
 				    completedCommand();
 				}

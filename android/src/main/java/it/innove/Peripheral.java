@@ -435,6 +435,7 @@ public class Peripheral extends BluetoothGattCallback {
 				return;
 			}
 			sendBackrError(readCallback, "Error reading " + characteristic.getUuid() + " status=" + status);
+			readCallback = null;
 		} else if (readCallback != null) {
 			final byte[] dataValue = copyOf(characteristic.getValue());
 			final Callback callback = readCallback;
@@ -465,6 +466,7 @@ public class Peripheral extends BluetoothGattCallback {
 				return;
 			}
 			sendBackrError(writeCallback, "Error writing " + characteristic.getUuid() + " status=" + status);
+			writeCallback = null;
 		} else if (writeCallback != null) {
 			final Callback callback = writeCallback;
 			mainHandler.post(new Runnable() {
@@ -486,8 +488,8 @@ public class Peripheral extends BluetoothGattCallback {
 				registerNotifyCallback.invoke();
 				Log.d(BleManager.LOG_TAG, "onDescriptorWrite success");
 			} else {
-				registerNotifyCallback.invoke("Error writing descriptor stats=" + status, null);
-				Log.e(BleManager.LOG_TAG, "Error writing descriptor stats=" + status);
+				registerNotifyCallback.invoke("Error writing descriptor status=" + status, null);
+				Log.e(BleManager.LOG_TAG, "Error writing descriptor status=" + status);
 			}
 
 			registerNotifyCallback = null;

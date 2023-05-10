@@ -22,10 +22,10 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
-   * @param serviceUUID
-   * @param characteristicUUID
+   * 
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
    * @returns data as an array of numbers (which can be converted back to a Uint8Array (ByteArray) using something like [Buffer.from()](https://github.com/feross/buffer))
    */
   read(peripheralId: string, serviceUUID: string, characteristicUUID: string) {
@@ -46,10 +46,10 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
-   * @param serviceUUID
-   * @param characteristicUUID
+   * 
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
    * @param descriptorUUID
    * @returns data as an array of numbers (which can be converted back to a Uint8Array (ByteArray) using something like [Buffer.from()](https://github.com/feross/buffer))
    */
@@ -72,8 +72,8 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
+   * 
+   * @param peripheralId 
    * @returns a promise resolving with the updated RSSI (`number`) if it succeeds.
    */
   readRSSI(peripheralId: string) {
@@ -90,7 +90,7 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param peripheralId
+   * @param peripheralId 
    * @returns a promise that resolves to a boolean indicating if gatt was successfully refreshed or not.
    */
   refreshCache(peripheralId: string) {
@@ -106,10 +106,10 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
+   * 
+   * @param peripheralId 
    * @param serviceUUIDs [iOS only] optional filter of services to retrieve.
-   * @returns
+   * @returns 
    */
   retrieveServices(peripheralId: string, serviceUUIDs: string[] = []) {
     return new Promise<PeripheralInfo>((fulfill, reject) => {
@@ -128,13 +128,13 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
-   * @param serviceUUID
-   * @param characteristicUUID
+   * 
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
    * @param data data to write as an array of numbers (which can be converted from a Uint8Array (ByteArray) using something like [Buffer.toJSON().data](https://github.com/feross/buffer))
    * @param maxByteSize optional, defaults to 20
-   * @returns
+   * @returns 
    */
   write(
     peripheralId: string,
@@ -163,14 +163,14 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
-   * @param serviceUUID
-   * @param characteristicUUID
+   * 
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
    * @param data data to write as an array of numbers (which can be converted from a Uint8Array (ByteArray) using something like [Buffer.toJSON().data](https://github.com/feross/buffer))
    * @param maxByteSize optional, defaults to 20
    * @param queueSleepTime optional, defaults to 10. Only useful if data length is greater than maxByteSize.
-   * @returns
+   * @returns 
    */
   writeWithoutResponse(
     peripheralId: string,
@@ -214,9 +214,9 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param peripheralId
+   * @param peripheralId 
    * @param peripheralPin optional. will be used to auto-bond if possible.
-   * @returns
+   * @returns 
    */
   createBond(peripheralId: string, peripheralPin: string | null = null) {
     return new Promise<void>((fulfill, reject) => {
@@ -232,8 +232,8 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param peripheralId
-   * @returns
+   * @param peripheralId 
+   * @returns 
    */
   removeBond(peripheralId: string) {
     return new Promise<void>((fulfill, reject) => {
@@ -248,10 +248,10 @@ class BleManager {
   }
 
   /**
-   *
-   * @param peripheralId
+   * 
+   * @param peripheralId 
    * @param force [Android only] defaults to true.
-   * @returns
+   * @returns 
    */
   disconnect(peripheralId: string, force: boolean = true) {
     return new Promise<void>((fulfill, reject) => {
@@ -284,11 +284,11 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param peripheralId
-   * @param serviceUUID
-   * @param characteristicUUID
-   * @param buffer
-   * @returns
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
+   * @param buffer 
+   * @returns 
    */
   startNotificationUseBuffer(
     peripheralId: string,
@@ -354,12 +354,12 @@ class BleManager {
   }
 
   /**
-   *
-   * @param serviceUUIDs
+   * 
+   * @param serviceUUIDs 
    * @param seconds amount of seconds to scan. if set to 0 or less, will scan until you call stopScan() or the OS stops the scan (background etc).
    * @param allowDuplicates [iOS only]
    * @param scanningOptions [Android only] optional map of properties to fine-tune scan behavior on android, see README.
-   * @returns
+   * @returns 
    */
   scan(
     serviceUUIDs: string[],
@@ -389,7 +389,7 @@ class BleManager {
         scanningOptions.scanMode = BleScanMode.LowPower;
       }
 
-      // (ANDROID) Defaults to CALLBACK_TYPE_ALL_MATCHES
+      // (ANDROID) Defaults to CALLBACK_TYPE_ALL_MATCHES 
       // WARN: sometimes, setting a scanSetting instead of leaving it untouched might result in unexpected behaviors.
       // https://github.com/dariuszseweryn/RxAndroidBle/issues/462
       if (scanningOptions.callbackType == null) {
@@ -438,7 +438,7 @@ class BleManager {
 
   /**
    * [Android only] triggers an ENABLE_REQUEST intent to the end-user to enable bluetooth.
-   * @returns
+   * @returns 
    */
   enableBluetooth() {
     return new Promise<void>((fulfill, reject) => {
@@ -453,9 +453,9 @@ class BleManager {
   }
 
   /**
-   *
+   * 
    * @param serviceUUIDs [optional] not used on android, optional on ios.
-   * @returns
+   * @returns 
    */
   getConnectedPeripherals(serviceUUIDs: string[] = []) {
     return new Promise<Peripheral[]>((fulfill, reject) => {
@@ -476,7 +476,7 @@ class BleManager {
 
   /**
    * [Android only]
-   * @returns
+   * @returns 
    */
   getBondedPeripherals() {
     return new Promise<Peripheral[]>((fulfill, reject) => {
@@ -512,8 +512,8 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param peripheralId
-   * @returns
+   * @param peripheralId 
+   * @returns 
    */
   removePeripheral(peripheralId: string) {
     return new Promise<void>((fulfill, reject) => {
@@ -528,9 +528,9 @@ class BleManager {
   }
 
   /**
-   * @param peripheralId
+   * @param peripheralId 
    * @param serviceUUIDs [optional] not used on android, optional on ios.
-   * @returns
+   * @returns 
    */
   isPeripheralConnected(peripheralId: string, serviceUUIDs: string[] = []) {
     return this.getConnectedPeripherals(serviceUUIDs).then(result => {
@@ -544,8 +544,8 @@ class BleManager {
 
   /**
    * [Android only, API 21+]
-   * @param peripheralId
-   * @param connectionPriority
+   * @param peripheralId 
+   * @param connectionPriority 
    * @returns a promise that resolves with a boolean indicating of the connection priority was changed successfully, or rejects with an error message.
    */
   requestConnectionPriority(peripheralId: string, connectionPriority: ConnectionPriority) {
@@ -585,7 +585,7 @@ class BleManager {
 
   /**
    * [Android only]
-   * @param name
+   * @param name 
    */
   setName(name: string) {
     bleManager.setName(name);

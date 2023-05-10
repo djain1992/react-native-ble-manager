@@ -930,7 +930,7 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 - (void)centralManager:(CBCentralManager *)central didDisconnectPeripheral:(CBPeripheral *)peripheral error:(NSError *)error {
     NSLog(@"Peripheral Disconnected: %@", [peripheral uuidAsString]);
     NSString *errorStr;
-
+    
     if (error) {
         NSLog(@"Error: %@", error);
         errorStr = [NSString stringWithFormat:@"%@", [error localizedDescription]];
@@ -940,7 +940,7 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
     
     NSString *peripheralUUIDString = [peripheral uuidAsString];
     
-    NSString *errorStr = [NSString stringWithFormat:@"Peripheral did disconnect: %@", peripheralUUIDString];
+    //NSString *errorStr = [NSString stringWithFormat:@"Peripheral did disconnect: %@", peripheralUUIDString];
 
     [self invokeAndClearDictionary:connectCallbacks withKey:peripheralUUIDString usingParameters:@[errorStr]];
     [self invokeAndClearDictionary:readRSSICallbacks withKey:peripheralUUIDString usingParameters:@[errorStr]];

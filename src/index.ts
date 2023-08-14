@@ -5,6 +5,7 @@ import {
   BleScanMatchMode,
   BleScanMode,
   BleState,
+  ConnectOptions,
   ConnectionPriority,
   Peripheral,
   PeripheralInfo,
@@ -200,9 +201,12 @@ class BleManager {
     });
   }
 
-  connect(peripheralId: string) {
+  connect(peripheralId: string, options?: ConnectOptions) {
     return new Promise<void>((fulfill, reject) => {
-      bleManager.connect(peripheralId, (error: string | null) => {
+      if (!options) {
+        options = {};
+      }
+      bleManager.connect(peripheralId, options, (error: string | null) => {
         if (error) {
           reject(error);
         } else {
@@ -591,6 +595,40 @@ class BleManager {
     bleManager.setName(name);
   }
 
+  /**
+   * [iOS only]
+   * @param peripheralId 
+   * @returns 
+   */
+  getMaximumWriteValueLengthForWithoutResponse(peripheralId: string) {
+    return new Promise<number>((fulfill, reject) => {
+      bleManager.getMaximumWriteValueLengthForWithoutResponse(peripheralId, (error: string | null, max: number) => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill(max);
+        }
+      });
+    });
+  }
+
+  /**
+   * [iOS only]
+   * @param peripheralId 
+   * @returns 
+   */
+  getMaximumWriteValueLengthForWithResponse(peripheralId: string) {
+    return new Promise<number>((fulfill, reject) => {
+      bleManager.getMaximumWriteValueLengthForWithResponse(peripheralId, (error: string | null, max: number) => {
+        if (error) {
+          reject(error);
+        } else {
+          fulfill(max);
+        }
+      });
+    });
+  }
+
   openL2capChannel(peripheralId: string, psm: number) {
     return new Promise<void>((fulfill, reject) => {
       bleManager.openL2capChannel(peripheralId, psm, (error: string | null) => {
@@ -640,5 +678,7 @@ class BleManager {
   }
 
 }
+
+
 
 export default new BleManager();

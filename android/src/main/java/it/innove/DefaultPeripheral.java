@@ -5,8 +5,7 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.os.Build;
 import android.os.ParcelUuid;
-
-import androidx.annotation.RequiresApi;
+import android.annotation.SuppressLint;
 
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -16,19 +15,20 @@ import com.facebook.react.bridge.WritableMap;
 
 import java.util.Map;
 
-@RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-public class LollipopPeripheral extends Peripheral {
+
+@SuppressLint("MissingPermission")
+public class DefaultPeripheral extends Peripheral {
 
     private ScanRecord advertisingData;
     private ScanResult scanResult;
 
-    public LollipopPeripheral(ReactContext reactContext, ScanResult result) {
+    public DefaultPeripheral(ReactContext reactContext, ScanResult result) {
         super(result.getDevice(), result.getRssi(), result.getScanRecord().getBytes(), reactContext);
         this.advertisingData = result.getScanRecord();
         this.scanResult = result;
     }
 
-    public LollipopPeripheral(BluetoothDevice device, ReactApplicationContext reactContext) {
+    public DefaultPeripheral(BluetoothDevice device, ReactApplicationContext reactContext) {
         super(device, reactContext);
     }
 
@@ -38,6 +38,10 @@ public class LollipopPeripheral extends Peripheral {
         WritableMap advertising = Arguments.createMap();
 
         try {
+            map.putString("name", device.getName());
+            map.putString("id", device.getAddress()); // mac address
+            map.putInt("rssi", advertisingRSSI);
+
             advertising.putMap("manufacturerData", byteArrayToWritableMap(advertisingDataBytes));
 
             if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

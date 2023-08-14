@@ -4,6 +4,7 @@ import static android.app.Activity.RESULT_OK;
 import static android.bluetooth.BluetoothProfile.GATT;
 import static android.os.Build.VERSION_CODES.LOLLIPOP;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -45,7 +46,7 @@ class BleManager extends ReactContextBaseJavaModule {
     public static final String LOG_TAG = "ReactNativeBleManager";
     private static final int ENABLE_REQUEST = 539;
 
-    private class BondRequest {
+    private static class BondRequest {
         private String uuid;
         private String pin;
         private Callback callback;
@@ -71,6 +72,8 @@ class BleManager extends ReactContextBaseJavaModule {
     private BondRequest bondRequest;
     private BondRequest removeBondRequest;
     private boolean forceLegacy;
+
+    public static ReadableMap moduleOptions;
 
     public ReactApplicationContext getReactContext() {
         return reactContext;
@@ -138,12 +141,13 @@ class BleManager extends ReactContextBaseJavaModule {
             return;
         }
         forceLegacy = false;
+        moduleOptions = options;
         if (options.hasKey("forceLegacy")) {
             forceLegacy = options.getBoolean("forceLegacy");
         }
 
         if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
-            scanManager = new LollipopScanManager(reactContext, this);
+            scanManager = new DefaultScanManager(reactContext, this);
         } else {
             scanManager = new LegacyScanManager(reactContext, this);
         }
@@ -158,6 +162,7 @@ class BleManager extends ReactContextBaseJavaModule {
         Log.d(LOG_TAG, "BleManager initialized");
     }
 
+    @SuppressLint("MissingPermission")
     @ReactMethod
     public void enableBluetooth(Callback callback) {
         if (getBluetoothAdapter() == null) {
@@ -171,7 +176,15 @@ class BleManager extends ReactContextBaseJavaModule {
             if (getCurrentActivity() == null)
                 callback.invoke("Current activity not available");
             else
-                getCurrentActivity().startActivityForResult(intentEnable, ENABLE_REQUEST);
+                {
+                    try{
+                        getCurrentActivity().startActivityForResult(intentEnable, ENABLE_REQUEST);
+                    }catch(Exception e){
+                        callback.invoke("Current activity not available");
+                    }
+                    
+                }
+                
         } else
             callback.invoke();
     }
@@ -223,6 +236,8 @@ class BleManager extends ReactContextBaseJavaModule {
         }
     }
 
+
+    @SuppressLint("MissingPermission")
     @ReactMethod
     public void createBond(String peripheralUUID, String peripheralPin, Callback callback) {
         Log.d(LOG_TAG, "Request bond to: " + peripheralUUID);
@@ -244,7 +259,7 @@ class BleManager extends ReactContextBaseJavaModule {
             return;
         } else if (peripheral.getDevice().createBond()) {
             Log.d(LOG_TAG, "Request bond successful for: " + peripheralUUID);
-            bondRequest = new BondRequest(peripheralUUID, peripheralPin, callback); // request bond success, waiting for boradcast
+            bondRequest = new BondRequest(peripheralUUID, peripheralPin, callback); // request bond success, waiting for broadcast
             return;
         }
 
@@ -286,7 +301,7 @@ class BleManager extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
-    public void connect(String peripheralUUID, Callback callback) {
+    public void connect(String peripheralUUID, ReadableMap options, Callback callback) {
         Log.d(LOG_TAG, "Connect to: " + peripheralUUID);
 
         Peripheral peripheral = retrieveOrCreatePeripheral(peripheralUUID);
@@ -294,7 +309,7 @@ class BleManager extends ReactContextBaseJavaModule {
             callback.invoke("Invalid peripheral uuid");
             return;
         }
-        peripheral.connect(callback, getCurrentActivity());
+        peripheral.connect(callback, getCurrentActivity(), options);
     }
 
     @ReactMethod
@@ -366,7 +381,7 @@ class BleManager extends ReactContextBaseJavaModule {
         if (peripheral != null) {
             byte[] decoded = new byte[message.size()];
             for (int i = 0; i < message.size(); i++) {
-                decoded[i] = new Integer(message.getInt(i)).byteValue();
+                decoded[i] = Integer.valueOf(message.getInt(i)).byteValue();
             }
             Log.d(LOG_TAG, "Message(" + decoded.length + "): " + bytesToHex(decoded));
             peripheral.write(UUIDHelper.uuidFromString(serviceUUID), UUIDHelper.uuidFromString(characteristicUUID),
@@ -387,7 +402,7 @@ class BleManager extends ReactContextBaseJavaModule {
         if (peripheral != null) {
             byte[] decoded = new byte[message.size()];
             for (int i = 0; i < message.size(); i++) {
-                decoded[i] = new Integer(message.getInt(i)).byteValue();
+              decoded[i] = Integer.valueOf(message.getInt(i)).byteValue();
             }
             Log.d(LOG_TAG, "Message(" + decoded.length + "): " + bytesToHex(decoded));
             peripheral.write(UUIDHelper.uuidFromString(serviceUUID), UUIDHelper.uuidFromString(characteristicUUID),
@@ -443,7 +458,7 @@ class BleManager extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void refreshCache(String deviceUUID, Callback callback) {
-        Log.d(LOG_TAG, "Refershing cache for: " + deviceUUID);
+        Log.d(LOG_TAG, "Refreshing cache for: " + deviceUUID);
         Peripheral peripheral = peripherals.get(deviceUUID);
         if (peripheral != null) {
             peripheral.refreshCache(callback);
@@ -524,7 +539,7 @@ class BleManager extends ReactContextBaseJavaModule {
             if (!peripherals.containsKey(address)) {
                 Peripheral peripheral;
                 if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
-                    peripheral = new LollipopPeripheral(device, reactContext);
+                    peripheral = new DefaultPeripheral(device, reactContext);
                 } else {
                     peripheral = new Peripheral(device, reactContext);
                 }
@@ -562,12 +577,10 @@ class BleManager extends ReactContextBaseJavaModule {
                 case BluetoothAdapter.STATE_TURNING_ON:
                     state = "turning_on";
                     break;
-                case BluetoothAdapter.STATE_OFF:
-                    state = "off";
-                    break;
                 case BluetoothAdapter.STATE_TURNING_OFF:
                     state = "turning_off";
                     break;
+                case BluetoothAdapter.STATE_OFF:
                 default:
                     // should not happen as per https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#getState()
                     state = "off";
@@ -583,11 +596,13 @@ class BleManager extends ReactContextBaseJavaModule {
     }
 
     @ReactMethod
+    @SuppressLint("MissingPermission")
     public void setName(String name) {
         BluetoothAdapter adapter = getBluetoothAdapter();
         adapter.setName(name);
     }
 
+    @SuppressLint("MissingPermission")
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -628,7 +643,12 @@ class BleManager extends ReactContextBaseJavaModule {
                 final int bondState = intent.getIntExtra(BluetoothDevice.EXTRA_BOND_STATE, BluetoothDevice.ERROR);
                 final int prevState = intent.getIntExtra(BluetoothDevice.EXTRA_PREVIOUS_BOND_STATE,
                         BluetoothDevice.ERROR);
-                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                BluetoothDevice device;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class);
+                } else {
+                    device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                }
 
                 String bondStateStr = "UNKNOWN";
                 switch (bondState) {
@@ -657,7 +677,7 @@ class BleManager extends ReactContextBaseJavaModule {
                 if (bondState == BluetoothDevice.BOND_BONDED) {
                     Peripheral peripheral;
                     if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
-                        peripheral = new LollipopPeripheral(device, reactContext);
+                        peripheral = new DefaultPeripheral(device, reactContext);
                     } else {
                         peripheral = new Peripheral(device, reactContext);
                     }
@@ -671,7 +691,12 @@ class BleManager extends ReactContextBaseJavaModule {
                     removeBondRequest = null;
                 }
             } else if (action.equals(BluetoothDevice.ACTION_PAIRING_REQUEST)) {
-                BluetoothDevice bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                BluetoothDevice bluetoothDevice;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE, BluetoothDevice.class);
+                } else {
+                    bluetoothDevice = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                }
                 if (bondRequest != null && bondRequest.uuid.equals(bluetoothDevice.getAddress()) && bondRequest.pin != null) {
                     bluetoothDevice.setPin(bondRequest.pin.getBytes());
                     bluetoothDevice.createBond();
@@ -715,6 +740,7 @@ class BleManager extends ReactContextBaseJavaModule {
         callback.invoke(null, map);
     }
 
+    @SuppressLint("MissingPermission")
     @ReactMethod
     public void getConnectedPeripherals(ReadableArray serviceUUIDs, Callback callback) {
         Log.d(LOG_TAG, "Get connected peripherals");
@@ -726,8 +752,8 @@ class BleManager extends ReactContextBaseJavaModule {
             return;
         }
 
-        List<BluetoothDevice> periperals = getBluetoothManager().getConnectedDevices(GATT);
-        for (BluetoothDevice entry : periperals) {
+        List<BluetoothDevice> peripherals = getBluetoothManager().getConnectedDevices(GATT);
+        for (BluetoothDevice entry : peripherals) {
             Peripheral peripheral = savePeripheral(entry);
             WritableMap jsonBundle = peripheral.asWritableMap();
             map.pushMap(jsonBundle);
@@ -735,6 +761,7 @@ class BleManager extends ReactContextBaseJavaModule {
         callback.invoke(null, map);
     }
 
+    @SuppressLint("MissingPermission")
     @ReactMethod
     public void getBondedPeripherals(Callback callback) {
         Log.d(LOG_TAG, "Get bonded peripherals");
@@ -743,7 +770,7 @@ class BleManager extends ReactContextBaseJavaModule {
         for (BluetoothDevice device : deviceSet) {
             Peripheral peripheral;
             if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
-                peripheral = new LollipopPeripheral(device, reactContext);
+                peripheral = new DefaultPeripheral(device, reactContext);
             } else {
                 peripheral = new Peripheral(device, reactContext);
             }
@@ -822,7 +849,7 @@ class BleManager extends ReactContextBaseJavaModule {
                 if (BluetoothAdapter.checkBluetoothAddress(peripheralUUID)) {
                     BluetoothDevice device = bluetoothAdapter.getRemoteDevice(peripheralUUID);
                     if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
-                        peripheral = new LollipopPeripheral(device, reactContext);
+                        peripheral = new DefaultPeripheral(device, reactContext);
                     } else {
                         peripheral = new Peripheral(device, reactContext);
                     }

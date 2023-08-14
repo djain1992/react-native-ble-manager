@@ -1,8 +1,8 @@
 package it.innove;
 
-import static android.os.Build.VERSION_CODES.LOLLIPOP;
 import static com.facebook.react.common.ReactConstants.TAG;
 
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -26,6 +26,7 @@ import androidx.annotation.Nullable;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.ReadableMap;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.RCTNativeAppEventEmitter;
@@ -55,13 +56,14 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 /**
  * Peripheral wraps the BluetoothDevice and provides methods to convert to JSON.
  */
+@SuppressLint("MissingPermission")
 public class Peripheral extends BluetoothGattCallback {
 
     private static final String CHARACTERISTIC_NOTIFICATION_CONFIG = "00002902-0000-1000-8000-00805f9b34fb";
     public static final int GATT_INSUFFICIENT_AUTHENTICATION = 5;
     public static final int GATT_AUTH_FAIL = 137;
 
-    private final BluetoothDevice device;
+    protected final BluetoothDevice device;
     private final Map<String, NotifyBufferContainer> bufferedCharacteristics;
     protected volatile byte[] advertisingDataBytes = new byte[0];
     protected volatile int advertisingRSSI;
@@ -122,7 +124,7 @@ public class Peripheral extends BluetoothGattCallback {
         Log.d(BleManager.LOG_TAG, "Peripheral event (" + eventName + "):" + device.getAddress());
     }
 
-    public void connect(final Callback callback, Activity activity) {
+    public void connect(final Callback callback, Activity activity, ReadableMap options) {
         mainHandler.post(() -> {
             if (!connected) {
                 BluetoothDevice device = getDevice();
@@ -130,7 +132,16 @@ public class Peripheral extends BluetoothGattCallback {
                 this.connecting = true;
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                     Log.d(BleManager.LOG_TAG, " Is Or Greater than M $mBluetoothDevice");
-                    gatt = device.connectGatt(activity, false, this, BluetoothDevice.TRANSPORT_LE);
+                    boolean autoconnect = false;
+                    if (options.hasKey("autoconnect")) {
+                        autoconnect = options.getBoolean("autoconnect");
+                    }
+                    if (!autoconnect && options.hasKey("phy")) {
+                        int phy = options.getInt("phy");
+                        gatt = device.connectGatt(activity, false, this, BluetoothDevice.TRANSPORT_LE, phy);
+                    } else {
+                        gatt = device.connectGatt(activity, autoconnect, this, BluetoothDevice.TRANSPORT_LE);
+                    }
                 } else {
                     Log.d(BleManager.LOG_TAG, " Less than M");
                     try {
@@ -1087,12 +1098,8 @@ public class Peripheral extends BluetoothGattCallback {
     public void requestConnectionPriority(int connectionPriority, Callback callback) {
         enqueue(() -> {
             if (gatt != null) {
-                if (Build.VERSION.SDK_INT >= LOLLIPOP) {
-                    boolean status = gatt.requestConnectionPriority(connectionPriority);
-                    callback.invoke(null, status);
-                } else {
-                    callback.invoke("Requesting connection priority requires at least API level 21", null);
-                }
+                boolean status = gatt.requestConnectionPriority(connectionPriority);
+                callback.invoke(null, status);
             } else {
                 callback.invoke("BluetoothGatt is null", null);
             }
@@ -1115,17 +1122,12 @@ public class Peripheral extends BluetoothGattCallback {
                 return;
             }
 
-            if (Build.VERSION.SDK_INT >= LOLLIPOP) {
-                requestMTUCallbacks.addLast(callback);
-                if (!gatt.requestMtu(mtu)) {
-                    for (Callback requestMTUCallback : requestMTUCallbacks) {
-                        requestMTUCallback.invoke("Request MTU failed", null);
-                    }
-                    requestMTUCallbacks.clear();
-                    completedCommand();
+            requestMTUCallbacks.addLast(callback);
+            if (!gatt.requestMtu(mtu)) {
+                for (Callback requestMTUCallback : requestMTUCallbacks) {
+                    requestMTUCallback.invoke("Request MTU failed", null);
                 }
-            } else {
-                callback.invoke("Requesting MTU requires at least API level 21", null);
+                requestMTUCallbacks.clear();
                 completedCommand();
             }
         });

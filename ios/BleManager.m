@@ -17,7 +17,8 @@ RCT_EXPORT_MODULE();
 @synthesize manager;
 @synthesize peripherals;
 @synthesize scanTimer;
-bool hasListeners;
+static bool hasListeners = NO;
+
 RCTResponseSenderBlock l2capOpenCallback = nil;
 RCTResponseSenderBlock l2capWriteCallback = nil;
 RCTResponseSenderBlock l2capReadCallback = nil;
@@ -191,7 +192,7 @@ CBL2CAPChannel *l2capChannel = nil;
 
 
 
-- (NSString *) centralManagerStateToString: (int)state
+- (NSString *) centralManagerStateToString: (CBManagerState)state
 {
     switch (state) {
         case CBManagerStateUnknown:
@@ -412,9 +413,11 @@ RCT_EXPORT_METHOD(scan:(NSArray *)serviceUUIDStrings timeoutSeconds:(nonnull NSN
     }
     [manager scanForPeripheralsWithServices:serviceUUIDs options:options];
     
-    dispatch_async(dispatch_get_main_queue(), ^{
-        self.scanTimer = [NSTimer scheduledTimerWithTimeInterval:[timeoutSeconds floatValue] target:self selector:@selector(stopScanTimer:) userInfo: nil repeats:NO];
-    });
+    if ([timeoutSeconds floatValue] > 0) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            self.scanTimer = [NSTimer scheduledTimerWithTimeInterval:[timeoutSeconds floatValue] target:self selector:@selector(stopScanTimer:) userInfo: nil repeats:NO];
+        });
+    }
     callback(@[]);
 }
 
@@ -452,13 +455,13 @@ RCT_EXPORT_METHOD(stopScan:(nonnull RCTResponseSenderBlock)callback)
     }
     [peripheral setAdvertisementData:advertisementData RSSI:RSSI];
     
-    // NSLog(@"Discover peripheral: %@", [peripheral name]);
+    NSLog(@"Discover peripheral: %@", [peripheral name]);
     if (hasListeners) {
         [self sendEventWithName:@"BleManagerDiscoverPeripheral" body:[peripheral asDictionary]];
     }
 }
 
-RCT_EXPORT_METHOD(connect:(NSString *)peripheralUUID callback:(nonnull RCTResponseSenderBlock)callback)
+RCT_EXPORT_METHOD(connect:(NSString *)peripheralUUID options:(NSDictionary *)options callback:(nonnull RCTResponseSenderBlock)callback)
 {
     NSLog(@"Connect");
     CBPeripheral *peripheral = [self findPeripheralByUUID:peripheralUUID];
@@ -543,7 +546,7 @@ RCT_EXPORT_METHOD(checkState:(nonnull RCTResponseSenderBlock)callback)
 
 RCT_EXPORT_METHOD(write:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUID  characteristicUUID:(NSString*)characteristicUUID message:(NSArray*)message maxByteSize:(NSInteger)maxByteSize callback:(nonnull RCTResponseSenderBlock)callback)
 {
-    // NSLog(@"Write");
+    NSLog(@"Write");
     
     BLECommandContext *context = [self getData:deviceUUID serviceUUIDString:serviceUUID characteristicUUIDString:characteristicUUID prop:CBCharacteristicPropertyWrite callback:callback];
     
@@ -596,7 +599,7 @@ RCT_EXPORT_METHOD(write:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUI
 
 RCT_EXPORT_METHOD(writeWithoutResponse:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUID  characteristicUUID:(NSString*)characteristicUUID message:(NSArray*)message maxByteSize:(NSInteger)maxByteSize queueSleepTime:(NSInteger)queueSleepTime callback:(nonnull RCTResponseSenderBlock)callback)
 {
-    // NSLog(@"writeWithoutResponse");
+    NSLog(@"writeWithoutResponse");
     
     BLECommandContext *context = [self getData:deviceUUID serviceUUIDString:serviceUUID characteristicUUIDString:characteristicUUID prop:CBCharacteristicPropertyWriteWithoutResponse callback:callback];
     unsigned long c = [message count];
@@ -627,14 +630,14 @@ RCT_EXPORT_METHOD(writeWithoutResponse:(NSString *)deviceUUID serviceUUID:(NSStr
                 [NSThread sleepForTimeInterval: sleepTimeSeconds];
             } while (offset < length);
             
-            // NSLog(@"Message to write(%lu): %@ ", (unsigned long)[dataMessage length], [dataMessage hexadecimalString]);
+            NSLog(@"Message to write(%lu): %@ ", (unsigned long)[dataMessage length], [dataMessage hexadecimalString]);
             callback(@[]);
         } else {
             
             CBPeripheral *peripheral = [context peripheral];
             CBCharacteristic *characteristic = [context characteristic];
             
-            // NSLog(@"Message to write(%lu): %@ ", (unsigned long)[dataMessage length], [dataMessage hexadecimalString]);
+            NSLog(@"Message to write(%lu): %@ ", (unsigned long)[dataMessage length], [dataMessage hexadecimalString]);
             [peripheral writeValue:dataMessage forCharacteristic:characteristic type:CBCharacteristicWriteWithoutResponse];
             callback(@[]);
         }
@@ -644,7 +647,7 @@ RCT_EXPORT_METHOD(writeWithoutResponse:(NSString *)deviceUUID serviceUUID:(NSStr
 
 RCT_EXPORT_METHOD(read:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUID  characteristicUUID:(NSString*)characteristicUUID callback:(nonnull RCTResponseSenderBlock)callback)
 {
-    // NSLog(@"read");
+    NSLog(@"read");
     
     BLECommandContext *context = [self getData:deviceUUID serviceUUIDString:serviceUUID characteristicUUIDString:characteristicUUID prop:CBCharacteristicPropertyRead callback:callback];
     if (context) {
@@ -659,6 +662,39 @@ RCT_EXPORT_METHOD(read:(NSString *)deviceUUID serviceUUID:(NSString*)serviceUUID
     }
     
 }
+
+RCT_EXPORT_METHOD(getMaximumWriteValueLengthForWithResponse:(NSString *)deviceUUID callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"getMaximumWriteValueLengthForWithResponse");
+    
+    CBPeripheral *peripheral = [self findPeripheralByUUID:deviceUUID];
+    
+    if (peripheral && peripheral.state == CBPeripheralStateConnected) {
+        [self insertCallback:callback intoDictionary:readRSSICallbacks withKey:[peripheral uuidAsString]];
+        NSNumber *max = [NSNumber numberWithInteger:[peripheral maximumWriteValueLengthForType:(CBCharacteristicWriteWithResponse)]];
+        callback(@[[NSNull null], max]);
+    } else {
+        callback(@[@"Peripheral not found or not connected"]);
+    }
+    
+}
+
+RCT_EXPORT_METHOD(getMaximumWriteValueLengthForWithoutResponse:(NSString *)deviceUUID callback:(nonnull RCTResponseSenderBlock)callback)
+{
+    NSLog(@"getMaximumWriteValueLengthForWithoutResponse");
+    
+    CBPeripheral *peripheral = [self findPeripheralByUUID:deviceUUID];
+    
+    if (peripheral && peripheral.state == CBPeripheralStateConnected) {
+        [self insertCallback:callback intoDictionary:readRSSICallbacks withKey:[peripheral uuidAsString]];
+        NSNumber *max = [NSNumber numberWithInteger:[peripheral maximumWriteValueLengthForType:(CBCharacteristicPropertyWriteWithoutResponse)]];
+        callback(@[[NSNull null], max]);
+    } else {
+        callback(@[@"Peripheral not found or not connected"]);
+    }
+    
+}
+
 
 RCT_EXPORT_METHOD(readRSSI:(NSString *)deviceUUID callback:(nonnull RCTResponseSenderBlock)callback)
 {
@@ -873,7 +909,7 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
 }
 
 - (void)peripheral:(CBPeripheral *)peripheral didWriteValueForCharacteristic:(CBCharacteristic *)characteristic error:(NSError *)error {
-    // NSLog(@"didWrite");
+    NSLog(@"didWrite");
     
     NSString *key = [self keyForPeripheral: peripheral andCharacteristic:characteristic];
     NSMutableArray* peripheralWriteCallbacks = [writeCallbacks objectForKey:key];
@@ -1016,9 +1052,8 @@ RCT_EXPORT_METHOD(requestMTU:(NSString *)deviceUUID mtu:(NSInteger)mtu callback:
         NSLog(@"Error: %@", error);
         return;
     }
-    // NSLog(@"Characteristics For Service Discover");
+    NSLog(@"Characteristics For Service Discover");
     
-    NSString *peripheralUUIDString = [peripheral uuidAsString];
     NSMutableSet *characteristicsForService = [NSMutableSet new];
     [characteristicsForService addObjectsFromArray:service.characteristics];
     [retrieveServicesLatches setObject:characteristicsForService forKey:service.UUID.UUIDString];

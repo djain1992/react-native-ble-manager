@@ -8,7 +8,6 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
-import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCharacteristic;
 import android.bluetooth.BluetoothManager;
 import android.content.BroadcastReceiver;
@@ -275,18 +274,6 @@ class BleManager extends ReactContextBaseJavaModule {
             callback.invoke("Invalid peripheral uuid");
             return;
         } else {
-			boolean bonded = false;
-			Set<BluetoothDevice> deviceSet = getBluetoothAdapter().getBondedDevices();
-			for (BluetoothDevice device : deviceSet) {
-				if (peripheralUUID.equalsIgnoreCase(device.getAddress())) {
-					bonded = true;
-					break;
-				}
-			}
-			if (bonded == false) {
-				callback.invoke();
-				return;
-			}
             try {
                 Method m = peripheral.getDevice().getClass().getMethod("removeBond", (Class[]) null);
                 m.invoke(peripheral.getDevice(), (Object[]) null);

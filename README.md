@@ -85,6 +85,7 @@ If you need communication while the app is not in the foreground you need the "A
 ##### iOS - Update Info.plist
 
 In iOS >= 13 you need to add the `NSBluetoothAlwaysUsageDescription` string key.
+If the deployment target is earlier than iOS 13, you also need to add the `NSBluetoothPeripheralUsageDescription` string key.
 
 ## Note
 
@@ -160,7 +161,7 @@ Returns a `Promise` object.
   - `reportDelay` - `Number` - [Android only] corresponding to [`setReportDelay`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder.html#setReportDelay(long)>). Defaults to `0ms`.
   - `phy` - `Number` - [Android only] corresponding to [`setPhy`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder#setPhy(int)>)
   - `legacy` - `Boolean` - [Android only] corresponding to [`setLegacy`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder#setLegacy(boolean)>)
-  - `exactAdvertisingName` - `string` - [Android only] corresponds to the `ScanFilter` [deviceName](<https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setDeviceName(java.lang.String)>)
+  - `exactAdvertisingName` - `string[]` - In Android corresponds to the `ScanFilter` [deviceName](<https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setDeviceName(java.lang.String)>). In ios the filter is done manually before sending the peripheral.
 
 **Examples**
 
@@ -835,9 +836,10 @@ The scanning find a new peripheral.
 - `advertising` - `JSON` - the advertising payload, here are some examples:
   - `isConnectable` - `Boolean`
   - `serviceUUIDs` - `Array of String`
-  - `manufacturerData` - `JSON` - contains the raw `bytes` and `data` (Base64 encoded string)
+  - `manufacturerData` - `JSON` - contains a json with the company id as field and the custom value as raw `bytes` and `data` (Base64 encoded string)
   - `serviceData` - `JSON` - contains the raw `bytes` and `data` (Base64 encoded string)
   - `txPowerLevel` - `Int`
+  - `rawData` - [Android only] `JSON` - contains the raw `bytes` and `data` (Base64 encoded string) of the all advertising data
 
 **Examples**
 

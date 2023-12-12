@@ -145,7 +145,7 @@ class BleManager extends ReactContextBaseJavaModule {
             forceLegacy = options.getBoolean("forceLegacy");
         }
 
-        if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
+        if (!forceLegacy) {
             scanManager = new DefaultScanManager(reactContext, this);
         } else {
             scanManager = new LegacyScanManager(reactContext, this);
@@ -525,7 +525,7 @@ class BleManager extends ReactContextBaseJavaModule {
         synchronized (peripherals) {
             if (!peripherals.containsKey(address)) {
                 Peripheral peripheral;
-                if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
+                if (!forceLegacy) {
                     peripheral = new DefaultPeripheral(device, reactContext);
                 } else {
                     peripheral = new Peripheral(device, reactContext);
@@ -663,7 +663,7 @@ class BleManager extends ReactContextBaseJavaModule {
 
                 if (bondState == BluetoothDevice.BOND_BONDED) {
                     Peripheral peripheral;
-                    if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
+                    if (!forceLegacy) {
                         peripheral = new DefaultPeripheral(device, reactContext);
                     } else {
                         peripheral = new Peripheral(device, reactContext);
@@ -756,7 +756,7 @@ class BleManager extends ReactContextBaseJavaModule {
         Set<BluetoothDevice> deviceSet = getBluetoothAdapter().getBondedDevices();
         for (BluetoothDevice device : deviceSet) {
             Peripheral peripheral;
-            if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
+            if (!forceLegacy) {
                 peripheral = new DefaultPeripheral(device, reactContext);
             } else {
                 peripheral = new Peripheral(device, reactContext);
@@ -835,7 +835,7 @@ class BleManager extends ReactContextBaseJavaModule {
                 }
                 if (BluetoothAdapter.checkBluetoothAddress(peripheralUUID)) {
                     BluetoothDevice device = bluetoothAdapter.getRemoteDevice(peripheralUUID);
-                    if (Build.VERSION.SDK_INT >= LOLLIPOP && !forceLegacy) {
+                    if (!forceLegacy) {
                         peripheral = new DefaultPeripheral(device, reactContext);
                     } else {
                         peripheral = new Peripheral(device, reactContext);

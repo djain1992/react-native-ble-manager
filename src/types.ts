@@ -38,7 +38,8 @@ export interface Peripheral {
 export interface AdvertisingData {
   isConnectable?: boolean;
   localName?: string;
-  manufacturerData?: CustomAdvertisingData;
+  rawData?: CustomAdvertisingData;
+  manufacturerData?: Record<string, CustomAdvertisingData>;
   serviceData?: Record<string, CustomAdvertisingData>;
   serviceUUIDs?: string[];
   txPowerLevel?: number;
@@ -136,7 +137,7 @@ export interface ScanOptions {
    * if `callbackType` is set to `FirstMatch`, the shortenedLocalName will be used for filtering.
    * https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setDeviceName(java.lang.String)
    */
-  exactAdvertisingName?: string;
+  exactAdvertisingName?: string|string[];
 }
 
 /**

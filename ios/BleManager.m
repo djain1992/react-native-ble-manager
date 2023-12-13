@@ -98,6 +98,24 @@ RCT_EXTERN_METHOD(getMaximumWriteValueLengthForWithResponse:
                   (NSString *)deviceUUID
                   callback:(nonnull RCTResponseSenderBlock)callback)
 
+RCT_EXTERN_METHOD(openL2capChannel:
+                  (NSString *)peripheralUUID psm:(NSInteger)psm
+                  callback:(nonnull RCTResponseSenderBlock)callback)
+
+RCT_EXTERN_METHOD(closeL2capChannel:
+                  (NSString *)peripheralUUID
+                  callback:(nonnull RCTResponseSenderBlock)callback)
+
+RCT_EXTERN_METHOD(writeToStream:
+                  (NSString *)peripheralUUID
+                  message:(NSArray*)message
+                  callback:(nonnull RCTResponseSenderBlock)callback)
+
+RCT_EXTERN_METHOD(readFromStream:
+                  (NSString *)peripheralUUID
+                  byteSize:(NSInteger)byteSize
+                  callback:(nonnull RCTResponseSenderBlock)callback)
+
 // Not supported
                   
 

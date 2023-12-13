@@ -39,7 +39,7 @@ export interface AdvertisingData {
   isConnectable?: boolean;
   localName?: string;
   rawData?: CustomAdvertisingData;
-  manufacturerData?: Record<string, CustomAdvertisingData>;
+  manufacturerData?: Record<string, number[]>;
   serviceData?: Record<string, CustomAdvertisingData>;
   serviceUUIDs?: string[];
   txPowerLevel?: number;

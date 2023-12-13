@@ -3,7 +3,7 @@ import CoreBluetooth
 
 
 @objc(BleManager)
-class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegate {
+class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegate, StreamDelegate {
     
     static var shared:BleManager?
     static var sharedManager:CBCentralManager?
@@ -35,6 +35,13 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
     
     static var verboseLogging = false
     
+    private var l2capOpenCallback: Dictionary<String, [RCTResponseSenderBlock]>
+    private var l2capWriteCallback: Dictionary<String, [RCTResponseSenderBlock]>
+    private var l2capReadCallback: Dictionary<String, [RCTResponseSenderBlock]>
+    private var outputStream: OutputStream?
+    private var inputStream: InputStream?
+    private var l2capChannel: CBL2CAPChannel?
+
     private override init() {
         peripherals = [:]
         connectCallbacks = [:]
@@ -51,6 +58,10 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         exactAdvertisingName = []
         connectedPeripherals = []
         
+        l2capOpenCallback = [:]
+        l2capWriteCallback = [:]
+        l2capReadCallback = [:]
+
         super.init()
         
         NSLog("BleManager created");
@@ -702,6 +713,86 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         }
     }
     
+    @objc func openL2capChannel(_ peripheralUUID: String,
+                                psm: Int,
+                                callback: @escaping RCTResponseSenderBlock) {
+        NSLog("openL2capChannel: \(peripheralUUID) \(psm)");
+
+        guard let peripheral = peripherals[peripheralUUID], peripheral.instance.state == .connected else {
+            callback(["Peripheral not found or not connected"])
+            return
+        }
+
+        peripheral.instance.openL2CAPChannel(CBL2CAPPSM(psm))
+        insertCallback(callback, intoDictionary: &l2capOpenCallback, withKey: "l2capOpen")
+    }
+
+    @objc func closeL2capChannel(_ peripheralUUID: String,
+                                 callback: @escaping RCTResponseSenderBlock) {
+        NSLog("closeL2capChannel: \(peripheralUUID)");
+
+        guard peripherals[peripheralUUID] != nil else {
+            callback(["Peripheral not found or not connected"])
+            return
+        }
+        closeStreams()
+        callback([])
+    }
+
+    @objc func writeToStream(_ peripheralUUID: String,
+                             message: [UInt8],
+                             callback: @escaping RCTResponseSenderBlock) {
+        NSLog("writeToStream: \(peripheralUUID)");
+
+        guard let peripheral = peripherals[peripheralUUID] else {
+            callback(["Peripheral not found or not connected"])
+            return
+        }
+
+        let dataMessage = Data(message)
+        if BleManager.verboseLogging {
+            NSLog("Message to write(\(dataMessage.count)): \(dataMessage.hexadecimalString())")
+        }
+
+        guard outputStream != nil else {
+            callback(["Output stream is not open"])
+            return
+        }
+        insertCallback(callback, intoDictionary: &l2capWriteCallback, withKey: "l2capWrite")
+        _ = dataMessage.withUnsafeBytes {
+            dataMessageBytes in outputStream!.write(dataMessageBytes.baseAddress!, maxLength: dataMessageBytes.count)
+        }
+    }
+
+    @objc func readFromStream(_ peripheralUUID: String,
+                              byteSize: Int,
+                              callback: @escaping RCTResponseSenderBlock) {
+        NSLog("readFromStream: \(peripheralUUID)");
+
+        guard peripherals[peripheralUUID] != nil else {
+            callback(["Peripheral not found or not connected"])
+            return
+        }
+
+        guard inputStream != nil else {
+            callback(["input stream is nil"])
+            return
+        }
+
+        if inputStream!.hasBytesAvailable {
+            var buffer = [UInt8](repeating: 0, count: 4)
+            let readResponse = inputStream!.read(&buffer, maxLength: 4)
+            if readResponse < 0 {
+                NSLog("Error reading stream \(String(describing: inputStream!.streamError))")
+                callback(["Read Terminated"])
+            } else {
+                callback([NSNull(), buffer])
+            }
+            return
+        }
+        insertCallback(callback, intoDictionary: &l2capReadCallback, withKey: "l2capRead")
+    }
+
     func centralManager(_ central: CBCentralManager, willRestoreState dict: [String : Any]) {
         if let restoredPeripherals = dict[CBCentralManagerRestoredStatePeripheralsKey] as? [CBPeripheral], restoredPeripherals.count > 0 {
             serialQueue.sync {
@@ -721,7 +812,7 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
     
     func centralManager(_ central: CBCentralManager,
                         didConnect peripheral: CBPeripheral) {
-        NSLog("Peripheral Connected: \(peripheral.uuidAsString() ?? "")")
+        NSLog("Peripheral Connected: \(peripheral.uuidAsString())")
         peripheral.delegate = self
         
         /*
@@ -745,7 +836,7 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
     func centralManager(_ central: CBCentralManager,
                         didFailToConnect peripheral: CBPeripheral,
                         error: Error?) {
-        let errorStr = "Peripheral connection failure: \(peripheral.uuidAsString() ?? "") (\(error?.localizedDescription ?? "")"
+        let errorStr = "Peripheral connection failure: \(peripheral.uuidAsString()) (\(error?.localizedDescription ?? "")"
         NSLog(errorStr)
         
         invokeAndClearDictionary(&connectCallbacks, withKey: peripheral.uuidAsString(), usingParameters: [errorStr])
@@ -767,6 +858,9 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         invokeAndClearDictionary(&readRSSICallbacks, withKey: peripheralUUIDString, usingParameters: [errorStr])
         invokeAndClearDictionary(&retrieveServicesCallbacks, withKey: peripheralUUIDString, usingParameters: [errorStr])
         
+        invokeAndClearDictionary(&l2capOpenCallback, withKey: "l2capOpen", usingParameters: [errorStr])
+        invokeAndClearDictionary(&l2capWriteCallback, withKey: "l2capWrite", usingParameters: [errorStr])
+        invokeAndClearDictionary(&l2capReadCallback, withKey: "l2capRead", usingParameters: [errorStr])
         
         for key in readCallbacks.keys {
             if let keyString = key as String?, keyString.hasPrefix(peripheralUUIDString) {
@@ -1136,12 +1230,86 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         }
     }
     
-    
-    static func getCentralManager() -> CBCentralManager? {
+    func closeStreams() {
+        guard l2capChannel != nil && outputStream != nil && inputStream != nil else {
+            return
+        }
+        NSLog("Closing the streams")
+        outputStream!.close()
+        outputStream!.remove(from: .current, forMode: RunLoop.Mode.default)
+        inputStream!.close()
+        inputStream!.remove(from: .current, forMode: RunLoop.Mode.default)
+        outputStream = nil
+        inputStream = nil
+        l2capChannel = nil
+    }
+
+    func peripheral(_ peripheral: CBPeripheral,
+                    didOpen channel: CBL2CAPChannel?,
+                    error: Error?) {
+         guard error == nil && channel != nil else {
+            NSLog("LE-COC: Failed to open channel \(String(describing: error?.localizedDescription))")
+            return
+        }
+        NSLog("L2CAPChannel opened")
+        // Store the channel identifier
+        l2capChannel = channel;
+
+        // Open output stream
+        outputStream = channel!.outputStream
+        outputStream!.delegate = self
+        outputStream!.schedule(in: .current, forMode: RunLoop.Mode.default)
+        outputStream!.open()
+        // Open input Stream
+        inputStream = channel!.inputStream
+        inputStream!.delegate = self
+        inputStream!.schedule(in: .current, forMode: RunLoop.Mode.default)
+        inputStream!.open()
+    }
+
+    func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
+        let type = aStream == inputStream ? "Input": "Output"
+        switch eventCode {
+        case .openCompleted:
+            if aStream == inputStream {
+                invokeAndClearDictionary(&l2capOpenCallback, withKey: "l2capOpen", usingParameters: [])
+            }
+        case .hasBytesAvailable:
+            if aStream == inputStream && l2capReadCallback["l2capRead"] != nil {
+                var readResponse: Int = 0;
+                var buffer = [UInt8](repeating: 0, count: 4)
+                readResponse = inputStream!.read(&buffer, maxLength: 4)
+                if readResponse < 0 {
+                    NSLog("Error reading stream \(String(describing: inputStream!.streamError))")
+                    invokeAndClearDictionary(&l2capReadCallback, withKey: "l2capRead", usingParameters: ["Stream Read Error"])
+                } else {
+                    invokeAndClearDictionary(&l2capReadCallback, withKey: "l2capRead", usingParameters: [NSNull(), buffer])
+                }
+            }
+        case .hasSpaceAvailable:
+            if aStream == outputStream {
+                invokeAndClearDictionary(&l2capWriteCallback, withKey: "l2capWrite", usingParameters: [])
+            }
+        case .errorOccurred:
+            NSLog("stream error \(String(describing: aStream.streamError))")
+            invokeAndClearDictionary(&l2capReadCallback, withKey: "l2capRead", usingParameters: [aStream.streamError?.localizedDescription ?? "Stream Error"])
+            invokeAndClearDictionary(&l2capWriteCallback, withKey: "l2capWrite", usingParameters: [aStream.streamError?.localizedDescription ?? "Stream Error"])
+            closeStreams()
+        case .endEncountered:
+            NSLog("Stream End")
+            if aStream == inputStream {
+                closeStreams()
+            }
+        default:
+            NSLog("Unknown Event \(eventCode)")
+        }
+    }
+
+    @objc static func getCentralManager() -> CBCentralManager? {
         return sharedManager
     }
     
-    static func getInstance() -> BleManager? {
+    @objc static func getInstance() -> BleManager? {
         return shared
     }
     

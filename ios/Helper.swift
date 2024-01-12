@@ -105,7 +105,7 @@ class Helper {
             if mfgData.count > 1 {
                 let manufactureID = UInt16(mfgData[0]) + UInt16(mfgData[1]) << 8
                 var manInfo: [String: Any] = [:]
-                manInfo[String(format: "%04X", manufactureID)] = mfgData.subdata(in: 2..<mfgData.endIndex).toArray()
+                manInfo[String(format: "%04X", manufactureID)] = Helper.dataToArrayBuffer(mfgData.subdata(in: 2..<mfgData.endIndex))
                 adv["manufacturerData"] = manInfo
             }
             adv.removeValue(forKey: CBAdvertisementDataManufacturerDataKey)
@@ -192,18 +192,14 @@ class Helper {
     // Find a service in a peripheral
     static func findService(fromUUID UUID: CBUUID, peripheral p: CBPeripheral) -> CBService? {
         for service in p.services ?? [] {
-            if compareCBUUID(service.uuid, UUID2: UUID) {
+            if service.uuid.isEqual(UUID) {
                 return service
             }
         }
         
         return nil // Service not found on this peripheral
     }
-    
-    static func compareCBUUID(_ UUID1: CBUUID, UUID2: CBUUID) -> Bool {
-        return UUID1.uuidString.caseInsensitiveCompare(UUID2.uuidString) == .orderedSame
-    }
-    
+        
     // Find a characteristic in service with a specific property
     static func findCharacteristic(fromUUID UUID: CBUUID, service: CBService, prop: CBCharacteristicProperties) -> CBCharacteristic? {
         if BleManager.verboseLogging {

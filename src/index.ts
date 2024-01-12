@@ -1,4 +1,4 @@
-import { NativeModules } from 'react-native';
+import { NativeEventEmitter, NativeModules } from 'react-native';
 import {
   BleScanCallbackType,
   BleScanMatchCount,
@@ -15,10 +15,11 @@ import {
 
 export * from './types';
 
-var bleManager = NativeModules.BleManager;
+let bleManager = NativeModules.BleManager;
 
-class BleManager {
+class BleManager extends NativeEventEmitter {
   constructor() {
+    super(bleManager);
     this.isPeripheralConnected = this.isPeripheralConnected.bind(this);
   }
 
@@ -66,6 +67,34 @@ class BleManager {
             reject(error);
           } else {
             fulfill(data);
+          }
+        }
+      );
+    });
+  }
+
+  /**
+   * 
+   * @param peripheralId 
+   * @param serviceUUID 
+   * @param characteristicUUID 
+   * @param descriptorUUID
+   * @param data data to write as an array of numbers (which can be converted from a Uint8Array (ByteArray) using something like [Buffer.toJSON().data](https://github.com/feross/buffer))
+   * @returns
+   */
+  writeDescriptor(peripheralId: string, serviceUUID: string, characteristicUUID: string, descriptorUUID: string, data: number[]) {
+    return new Promise<void>((fulfill, reject) => {
+      bleManager.writeDescriptor(
+        peripheralId,
+        serviceUUID,
+        characteristicUUID,
+        descriptorUUID,
+        data,
+        (error: string | null) => {
+          if (error) {
+            reject(error);
+          } else {
+            fulfill();
           }
         }
       );
@@ -362,7 +391,7 @@ class BleManager {
    * @param serviceUUIDs 
    * @param seconds amount of seconds to scan. if set to 0 or less, will scan until you call stopScan() or the OS stops the scan (background etc).
    * @param allowDuplicates [iOS only]
-   * @param scanningOptions [Android only] optional map of properties to fine-tune scan behavior on android, see README.
+   * @param scanningOptions optional map of properties to fine-tune scan behavior, see DOCS.
    * @returns 
    */
   scan(

@@ -46,7 +46,7 @@ Returns a `Promise` object.
 - `serviceUUIDs` - `Array of String` - the UUIDs of the services to looking for. On Android the filter works only for 5.0 or newer.
 - `seconds` - `Integer` - the amount of seconds to scan.
 - `allowDuplicates` - `Boolean` - [iOS only] allow duplicates in device scanning
-- `scanningOptions` - `JSON` - [Android only] after Android 5.0, user can control specific ble scan behaviors:
+- `scanningOptions` - `JSON` - user can control specific ble scan behaviors:
   - `numberOfMatches` - `Number` - [Android only] corresponding to [`setNumOfMatches`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder.html#setNumOfMatches(int)>). Defaults to `ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT`. /!\ anything other than default may only work when a `ScanFilter` is active /!\
   - `matchMode` - `Number` - [Android only] corresponding to [`setMatchMode`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder.html#setMatchMode(int)>). Defaults to `ScanSettings.MATCH_MODE_AGGRESSIVE`.
   - `callbackType` - `Number` - [Android only] corresponding to [`setCallbackType`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder.html#setCallbackType(int)>). Defaults `ScanSettings.CALLBACK_TYPE_ALL_MATCHES`. /!\ anything other than default may only work when a `ScanFilter` is active /!\
@@ -54,7 +54,12 @@ Returns a `Promise` object.
   - `reportDelay` - `Number` - [Android only] corresponding to [`setReportDelay`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder.html#setReportDelay(long)>). Defaults to `0ms`.
   - `phy` - `Number` - [Android only] corresponding to [`setPhy`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder#setPhy(int)>)
   - `legacy` - `Boolean` - [Android only] corresponding to [`setLegacy`](<https://developer.android.com/reference/android/bluetooth/le/ScanSettings.Builder#setLegacy(boolean)>)
-  - `exactAdvertisingName` - `string[]` - In Android corresponds to the `ScanFilter` [deviceName](<https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setDeviceName(java.lang.String)>). In ios the filter is done manually before sending the peripheral.
+  - `exactAdvertisingName` - `string[]` - In Android corresponds to the `ScanFilter` [deviceName](<https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setDeviceName(java.lang.String)>). In iOS the filter is done manually before sending the peripheral.
+  - `manufacturerData` - `object` - [Android only] corresponding to [`setManufacturerData`](<https://developer.android.com/reference/android/bluetooth/le/ScanFilter.Builder#setManufacturerData(int,%20byte[],%20byte[])>). Filter by manufacturer id or data.
+    - `manufacturerId` - `number` - Manufacturer / company id to filter for.
+    - `manufacturerData` - `number[]` - Additional manufacturer data filter.
+    - `manufacturerDataMask` - `number[]` - Mask for manufacturer data, must have the same length as `manufacturerData`.
+      For any bit in the mask, set it to 1 if it needs to match the one in manufacturer data, otherwise set it to 0.
 
 **Examples**
 
@@ -721,6 +726,25 @@ BleManager.isPeripheralConnected(
 
 ---
 
+## isScanning()
+
+Checks whether the scan is in progress and return `true` or `false`.
+Returns a `Promise` object.
+
+**Examples**
+
+```js
+BleManager.isScanning().then((isScanning) => {
+  if (isScanning) {
+    console.log("Is scanning!");
+  } else {
+    console.log("Is NOT scanning!");
+  }
+});
+```
+
+---
+
 ## setName(name) [Android only]
 
 Create the request to set the name of the bluetooth adapter. (https://developer.android.com/reference/android/bluetooth/BluetoothAdapter#setName(java.lang.String))
@@ -759,7 +783,7 @@ BleManager.getMaximumWriteValueLengthForWithoutResponse(
 
 ---
 
-## getMaximumWriteValueLengthForWitResponse(peripheralId) [iOS only]
+## getMaximumWriteValueLengthForWithResponse(peripheralId) [iOS only]
 
 Return the maximum value length for WriteWithResponse.
 Returns a `Promise` object.
@@ -767,7 +791,7 @@ Returns a `Promise` object.
 **Examples**
 
 ```js
-BleManager.getMaximumWriteValueLengthForWitResponse(
+BleManager.getMaximumWriteValueLengthForWithResponse(
   "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 ).then((maxValue) => {
   console.log("Maximum length for WriteWithResponse: " + maxValue);

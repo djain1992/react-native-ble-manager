@@ -98,6 +98,8 @@ RCT_EXTERN_METHOD(isPeripheralConnected:
                   (NSString *)peripheralUUID
                   callback:(nonnull RCTResponseSenderBlock)callback)
 
+RCT_EXTERN_METHOD(isScanning:(nonnull RCTResponseSenderBlock)callback)
+
 RCT_EXTERN_METHOD(getMaximumWriteValueLengthForWithoutResponse:
                   (NSString *)peripheralUUID
                   callback:(nonnull RCTResponseSenderBlock)callback)

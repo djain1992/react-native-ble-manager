@@ -329,9 +329,9 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
             if let uuid = UUID(uuidString: peripheralUUID) {
                 let peripheralArray = manager?.retrievePeripherals(withIdentifiers: [uuid])
                 if let retrievedPeripheral = peripheralArray?.first {
-                    objc_sync_enter(peripherals)
-                    peripherals[retrievedPeripheral.uuidAsString()] = Peripheral(peripheral:retrievedPeripheral)
-                    objc_sync_exit(peripherals)
+                    serialQueue.sync {
+                        peripherals[retrievedPeripheral.uuidAsString()] = Peripheral(peripheral:retrievedPeripheral)
+                    }
                     NSLog("Successfully retrieved and connecting to peripheral with UUID: \(peripheralUUID)")
                     
                     // Connect to the retrieved peripheral
@@ -537,6 +537,14 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
             callback([NSNull(), peripheral.instance.state == .connected])
         } else {
             callback(["Peripheral not found"])
+        }
+    }
+    
+    @objc func isScanning(_ callback: @escaping RCTResponseSenderBlock) {        
+        if let manager = manager {
+            callback([NSNull(), manager.isScanning])
+        } else {
+            callback(["CBCentralManager not found"])
         }
     }
     

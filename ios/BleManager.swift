@@ -842,7 +842,7 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
                     peripheral.delegate = self
                 }
                 
-                NotificationCenter.default.post(name: Notification.Name("BleManagerCentralManagerWillRestoreState"), object: nil, userInfo: ["peripherals": data])
+                self.sendEvent(withName:"BleManagerCentralManagerWillRestoreState", body: ["peripherals": data])
             }
         }
     }
@@ -1119,7 +1119,7 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         
         if let error = error {
             NSLog("Error reading descriptor value for \(descriptor.uuid) on characteristic \(descriptor.characteristic!.uuid) :\(error)")
-            invokeAndClearDictionary(&readDescriptorCallbacks, withKey: key, usingParameters: [error, NSNull()])
+            invokeAndClearDictionary(&readDescriptorCallbacks, withKey: key, usingParameters: [error.localizedDescription, NSNull()])
             return
         }
         
@@ -1167,7 +1167,7 @@ class BleManager: RCTEventEmitter, CBCentralManagerDelegate, CBPeripheralDelegat
         
         if let error = error {
             NSLog("Error \(characteristic.uuid) :\(error)")
-            invokeAndClearDictionary(&readCallbacks, withKey: key, usingParameters: [error, NSNull()])
+            invokeAndClearDictionary(&readCallbacks, withKey: key, usingParameters: [error.localizedDescription, NSNull()])
             return
         }
         
